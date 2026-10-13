@@ -63,7 +63,7 @@ export default function PontoEixoLogin() {
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Ainda não é parceiro?{' '}
-            <a href="#" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+            <a href="/cadastro" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
               Crie sua conta
             </a>
           </p>
