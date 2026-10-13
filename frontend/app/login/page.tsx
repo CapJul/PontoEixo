@@ -37,7 +37,7 @@ export default function PontoEixoLogin() {
                   <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                     Senha
                   </label>
-                  <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-500 transition-colors">
+                  <a href="/recuperar-senha" className="text-xs font-medium text-blue-600 hover:text-blue-500 transition-colors">
                     Esqueceu a senha?
                   </a>
                 </div>
