@@ -1,5 +1,6 @@
 'use client';
 
+import MenuLateral from '@/componentes/MenuLateral';
 import React, { useState } from 'react';
 
 // Mock rico em dados para preencher o perfil lateral
@@ -85,27 +86,7 @@ export default function PontoEixoInquilinos() {
     <div className="min-h-screen flex bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
       
       {/* BARRA LATERAL ESQUERDA (Menu de Navegação) */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex-col hidden md:flex z-30">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
-          <h1 className="text-xl font-medium tracking-tight text-slate-900">
-            Ponto<span className="font-bold text-slate-500">Eixo</span>
-          </h1>
-        </div>
-        <nav className="flex-1 p-4 space-y-1">
-          <a href="/home" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors">
-            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-            Visão 3D
-          </a>
-          <a href="/contratos" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors">
-            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Contratos
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium bg-slate-200 text-slate-900 transition-colors">
-            <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-            Inquilinos
-          </a>
-        </nav>
-      </aside>
+      <MenuLateral />
 
       {/* ÁREA PRINCIPAL */}
       <main className="flex-1 p-8 overflow-y-auto z-10">
