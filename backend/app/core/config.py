@@ -36,6 +36,16 @@ class Configuracoes(BaseSettings):
     # Quando True, o SQLAlchemy imprime no console todo SQL executado (útil para depuração).
     ExibirSqlNoConsole: bool = False
 
+    # ------------------------------------------------------------------
+    # Autenticação (JWT)
+    # ------------------------------------------------------------------
+    # Chave usada para assinar os tokens. EM PRODUÇÃO, troque por um valor
+    # longo e aleatório, por exemplo: python -c "import secrets; print(secrets.token_urlsafe(64))"
+    ChaveSecretaJwt: str = "chave-de-desenvolvimento-pontoeixo-troque-em-producao"
+    AlgoritmoJwt: str = "HS256"
+    # Tempo de validade do token de acesso devolvido no login
+    MinutosExpiracaoTokenAcesso: int = 60
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

@@ -10,9 +10,12 @@ backend/
 ├── alembic.ini          # Configuração do Alembic
 ├── migracoes/           # Migrações do banco (ver migracoes/README.md)
 └── app/
-    ├── core/            # Configurações gerais (config.py)
+    ├── api/             # Dependências das rotas (sessão do banco, usuário logado)
+    ├── core/            # Configurações (config.py) e segurança (seguranca.py)
     ├── db/              # Base dos modelos e sessão do banco
-    └── modelos/         # Modelos (tabelas) do SQLAlchemy (usuario.py, ...)
+    ├── esquemas/        # Esquemas Pydantic de entrada e saída
+    ├── modelos/         # Modelos (tabelas) do SQLAlchemy (usuario.py, ...)
+    └── rotas/           # Endpoints da API, agrupados por assunto
 ```
 
 ## Como rodar localmente
@@ -34,3 +37,18 @@ fastapi dev main.py
 ```
 
 A documentação interativa fica em http://localhost:8000/docs.
+
+## Autenticação
+
+A API usa JWT. Depois do login, envie o token em todas as rotas protegidas:
+
+```
+Authorization: Bearer <token_acesso>
+```
+
+No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
+
+| Método | Rota | Protegida | Descrição |
+|---|---|---|---|
+| POST | `/auth/login` | Não | Login com e-mail e senha; devolve o token |
+| GET | `/auth/perfil` | Sim | Dados do usuário logado |
