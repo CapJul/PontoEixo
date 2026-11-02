@@ -46,6 +46,31 @@ class Configuracoes(BaseSettings):
     # Tempo de validade do token de acesso devolvido no login
     MinutosExpiracaoTokenAcesso: int = 60
 
+    # ------------------------------------------------------------------
+    # Recuperação de senha
+    # ------------------------------------------------------------------
+    # Validade do código de 6 dígitos enviado por e-mail
+    MinutosExpiracaoCodigoRecuperacao: int = 10
+    # Quantas vezes o usuário pode errar o código antes de ele ser invalidado
+    MaximoTentativasCodigoRecuperacao: int = 5
+    # Intervalo mínimo entre dois envios de código para o mesmo usuário
+    SegundosEntreEnviosCodigo: int = 60
+    # Validade do token de redefinição devolvido após validar o código
+    MinutosExpiracaoTokenRedefinicao: int = 15
+
+    # ------------------------------------------------------------------
+    # Envio de e-mails (SMTP)
+    # ------------------------------------------------------------------
+    # Se SmtpServidor ficar vazio, os e-mails NÃO são enviados: o conteúdo é
+    # apenas exibido no console (modo de desenvolvimento).
+    SmtpServidor: str = ""
+    SmtpPorta: int = 587
+    SmtpUsuario: str = ""
+    SmtpSenha: str = ""
+    SmtpRemetente: str = "PontoEixo <nao-responda@pontoeixo.com.br>"
+    # True usa STARTTLS (porta 587); False usa SSL direto (porta 465)
+    SmtpUsarStartTls: bool = True
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
