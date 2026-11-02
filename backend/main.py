@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.rotas import autenticacao
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +29,9 @@ if settings.PermissoesBackend:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Registro das rotas da API
+app.include_router(autenticacao.router)
 
 @app.get("/", tags=["Saúde da API"])
 async def root():
