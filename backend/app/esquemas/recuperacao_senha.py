@@ -2,9 +2,9 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from app.esquemas.comum import EmailNormalizado
+from app.esquemas.comum import EmailNormalizado, SenhaForte
 
 
 class SolicitarCodigoEntrada(BaseModel):
@@ -32,6 +32,20 @@ class TokenRedefinicaoSaida(BaseModel):
     token_redefinicao: str
     tipo_token: Literal["bearer"] = "bearer"
     expira_em_segundos: int
+
+
+class RedefinirSenhaEntrada(BaseModel):
+    """Etapa 3: nova senha escolhida pelo usuário."""
+
+    nova_senha: SenhaForte
+    confirmacao_senha: str = Field(examples=["MinhaSenha123"])
+
+    @model_validator(mode="after")
+    def validar_confirmacao(self) -> "RedefinirSenhaEntrada":
+        """Confere se a nova senha e a confirmação são iguais."""
+        if self.nova_senha != self.confirmacao_senha:
+            raise ValueError("A nova senha e a confirmação de senha não conferem.")
+        return self
 
 
 class MensagemSaida(BaseModel):
