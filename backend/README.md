@@ -12,7 +12,7 @@ backend/
 └── app/
     ├── core/            # Configurações gerais (config.py)
     ├── db/              # Base dos modelos e sessão do banco
-    └── modelos/         # Modelos (tabelas) do SQLAlchemy
+    └── modelos/         # Modelos (tabelas) do SQLAlchemy (usuario.py, ...)
 ```
 
 ## Como rodar localmente

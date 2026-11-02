@@ -5,8 +5,10 @@ Todo modelo (tabela) do projeto deve herdar de `Base`. O Alembic usa
 `Base.metadata` para comparar os modelos com o banco e gerar migrações.
 """
 
-from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase
+from datetime import datetime
+
+from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Convenção de nomes para restrições (chaves, índices, unique...).
 # Com ela, o Alembic gera nomes previsíveis e iguais em qualquer banco,
@@ -24,3 +26,26 @@ class Base(DeclarativeBase):
     """Classe mãe de todos os modelos do banco de dados."""
 
     metadata = MetaData(naming_convention=CONVENCAO_NOMES)
+
+
+class ColunasDeData:
+    """
+    Mixin que adiciona as colunas de auditoria `criado_em` e `atualizado_em`.
+
+    Os valores são preenchidos pelo próprio banco (`now()`), então não é
+    preciso informá-los ao inserir ou atualizar um registro.
+    """
+
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="Data e hora de criação do registro",
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="Data e hora da última atualização do registro",
+    )
