@@ -8,3 +8,4 @@ enxergá-las ao gerar migrações automáticas.
 
 from app.db.base import Base  # noqa: F401
 from app.modelos.usuario import Usuario  # noqa: F401
+from app.modelos.codigo_recuperacao import CodigoRecuperacao  # noqa: F401

@@ -9,6 +9,10 @@ Funções de segurança: hash de senhas e tokens JWT.
   para outra (ex.: acessar a API).
 """
 
+import hashlib
+import hmac
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -19,6 +23,7 @@ from app.core.config import settings
 
 # Tipos de token emitidos pela API
 TIPO_TOKEN_ACESSO = "acesso"
+TIPO_TOKEN_REDEFINICAO_SENHA = "redefinicao_senha"
 
 # Gerenciador de hash com a configuração recomendada (Argon2)
 _gerenciador_hash = PasswordHash.recommended()
@@ -44,6 +49,31 @@ def gerar_hash_senha(senha: str) -> str:
 def verificar_senha(senha: str, senha_hash: str) -> bool:
     """Retorna True se a senha em texto puro corresponde ao hash armazenado."""
     return _gerenciador_hash.verify(senha, senha_hash)
+
+
+# ----------------------------------------------------------------------
+# Códigos de recuperação de senha
+# ----------------------------------------------------------------------
+def gerar_codigo_numerico(quantidade_digitos: int = 6) -> str:
+    """Gera um código numérico aleatório e seguro (ex.: '048213')."""
+    return "".join(secrets.choice(string.digits) for _ in range(quantidade_digitos))
+
+
+def gerar_hash_codigo(codigo: str) -> str:
+    """
+    Gera o hash (HMAC-SHA256) de um código de recuperação.
+
+    O código nunca é salvo em texto puro no banco. Usamos HMAC com a chave
+    secreta da aplicação, então o hash não pode ser revertido sem ela.
+    """
+    return hmac.new(
+        settings.ChaveSecretaJwt.encode(), codigo.encode(), hashlib.sha256
+    ).hexdigest()
+
+
+def verificar_codigo(codigo: str, codigo_hash: str) -> bool:
+    """Compara o código digitado com o hash salvo, em tempo constante."""
+    return hmac.compare_digest(gerar_hash_codigo(codigo), codigo_hash)
 
 
 # ----------------------------------------------------------------------
@@ -86,6 +116,22 @@ def criar_token_acesso(usuario_id: int) -> str:
         assunto=usuario_id,
         tipo=TIPO_TOKEN_ACESSO,
         minutos_validade=settings.MinutosExpiracaoTokenAcesso,
+    )
+
+
+def criar_token_redefinicao_senha(usuario_id: int, codigo_id: int) -> str:
+    """
+    Cria o token entregue após o usuário validar o código de recuperação.
+
+    Ele só serve para redefinir a senha (não dá acesso às demais rotas) e
+    carrega o id do código validado (`cid`), para que o mesmo código não
+    possa ser usado duas vezes.
+    """
+    return criar_token(
+        assunto=usuario_id,
+        tipo=TIPO_TOKEN_REDEFINICAO_SENHA,
+        minutos_validade=settings.MinutosExpiracaoTokenRedefinicao,
+        dados_extras={"cid": codigo_id},
     )
 
 

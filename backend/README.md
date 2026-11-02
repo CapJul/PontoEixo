@@ -15,7 +15,8 @@ backend/
     ├── db/              # Base dos modelos e sessão do banco
     ├── esquemas/        # Esquemas Pydantic de entrada e saída
     ├── modelos/         # Modelos (tabelas) do SQLAlchemy (usuario.py, ...)
-    └── rotas/           # Endpoints da API, agrupados por assunto
+    ├── rotas/           # Endpoints da API, agrupados por assunto
+    └── servicos/        # Regras de negócio e integrações (envio de e-mail)
 ```
 
 ## Como rodar localmente
@@ -53,3 +54,11 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 | POST | `/auth/cadastro` | Não | Cria a conta e já devolve o token |
 | POST | `/auth/login` | Não | Login com e-mail e senha; devolve o token |
 | GET | `/auth/perfil` | Sim | Dados do usuário logado |
+| POST | `/auth/recuperar-senha/solicitar-codigo` | Não | Envia o código de 6 dígitos por e-mail |
+| POST | `/auth/recuperar-senha/validar-codigo` | Não | Confere o código e devolve o `token_redefinicao` |
+
+## Recuperação de senha e e-mail
+
+Configure as variáveis `Smtp*` do `.env` para enviar e-mails de verdade.
+Com `SmtpServidor` vazio (padrão em desenvolvimento), o e-mail não é enviado
+e o código aparece no console onde a API está rodando.
