@@ -50,5 +50,6 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 
 | Método | Rota | Protegida | Descrição |
 |---|---|---|---|
+| POST | `/auth/cadastro` | Não | Cria a conta e já devolve o token |
 | POST | `/auth/login` | Não | Login com e-mail e senha; devolve o token |
 | GET | `/auth/perfil` | Sim | Dados do usuário logado |
