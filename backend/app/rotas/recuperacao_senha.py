@@ -4,20 +4,33 @@ Rotas da seção de recuperação de senha.
 Endpoints:
     POST /auth/recuperar-senha/solicitar-codigo -> envia o código de 6 dígitos por e-mail
     POST /auth/recuperar-senha/validar-codigo   -> confere o código e devolve o token de redefinição (JWT)
+    POST /auth/recuperar-senha/redefinir        -> troca a senha (exige o token de redefinição)
 """
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 
-from app.api.dependencias import SessaoBanco
+from app.api.dependencias import SessaoBanco, erro_nao_autenticado, esquema_bearer
 from app.core.config import settings
-from app.core.seguranca import criar_token_redefinicao_senha, verificar_codigo
+from app.core.seguranca import (
+    TIPO_TOKEN_REDEFINICAO_SENHA,
+    TokenInvalido,
+    criar_token_redefinicao_senha,
+    decodificar_token,
+    gerar_hash_senha,
+    verificar_codigo,
+)
 from app.esquemas.recuperacao_senha import (
     MensagemSaida,
+    RedefinirSenhaEntrada,
     SolicitarCodigoEntrada,
     TokenRedefinicaoSaida,
     ValidarCodigoEntrada,
 )
+from app.modelos.codigo_recuperacao import CodigoRecuperacao
 from app.modelos.usuario import Usuario
 from app.servicos.recuperacao_senha import buscar_codigo_valido, gerar_e_enviar_codigo
 
@@ -87,3 +100,68 @@ def validar_codigo(dados: ValidarCodigoEntrada, sessao: SessaoBanco) -> TokenRed
         token_redefinicao=criar_token_redefinicao_senha(usuario.id, codigo.id),
         expira_em_segundos=settings.MinutosExpiracaoTokenRedefinicao * 60,
     )
+
+
+def obter_codigo_do_token_redefinicao(
+    sessao: SessaoBanco,
+    credenciais: Annotated[HTTPAuthorizationCredentials | None, Depends(esquema_bearer)],
+) -> CodigoRecuperacao:
+    """
+    Dependência que valida o token de redefinição enviado no cabeçalho Authorization.
+
+    Aceita apenas tokens do tipo `redefinicao_senha` (o token de acesso do login
+    não serve aqui) e garante que o código validado ainda não foi usado.
+
+    Returns:
+        O código de recuperação vinculado ao token (com o usuário carregado).
+
+    Raises:
+        HTTPException 401: token ausente, inválido, expirado ou já utilizado.
+    """
+    if credenciais is None:
+        raise erro_nao_autenticado("Token de redefinição não informado.")
+
+    try:
+        conteudo = decodificar_token(credenciais.credentials, TIPO_TOKEN_REDEFINICAO_SENHA)
+    except TokenInvalido as erro:
+        raise erro_nao_autenticado(str(erro)) from erro
+
+    codigo_id = conteudo.get("cid")
+    codigo = sessao.get(CodigoRecuperacao, codigo_id) if isinstance(codigo_id, int) else None
+    if (
+        codigo is None
+        or codigo.utilizado
+        or str(codigo.usuario_id) != conteudo["sub"]
+        or not codigo.usuario.ativo
+    ):
+        raise erro_nao_autenticado("Token de redefinição inválido ou já utilizado.")
+
+    return codigo
+
+
+@router.post(
+    "/redefinir",
+    response_model=MensagemSaida,
+    summary="Cadastra a nova senha (etapa 3)",
+    responses={
+        401: {"description": "Token de redefinição ausente, inválido, expirado ou já utilizado"},
+        422: {"description": "Senha fraca ou confirmação diferente"},
+    },
+)
+def redefinir_senha(
+    dados: RedefinirSenhaEntrada,
+    sessao: SessaoBanco,
+    codigo: Annotated[CodigoRecuperacao, Depends(obter_codigo_do_token_redefinicao)],
+) -> MensagemSaida:
+    """
+    Troca a senha do usuário.
+
+    Exige no cabeçalho `Authorization: Bearer <token_redefinicao>` o token
+    devolvido pela etapa 2 (`/validar-codigo`). Depois do uso, o código e o
+    token são invalidados: para trocar a senha de novo, é preciso pedir outro código.
+    """
+    codigo.usuario.senha_hash = gerar_hash_senha(dados.nova_senha)
+    codigo.utilizado = True
+    sessao.commit()
+
+    return MensagemSaida(mensagem="Senha redefinida com sucesso. Faça login com a nova senha.")

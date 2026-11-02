@@ -56,6 +56,7 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 | GET | `/auth/perfil` | Sim | Dados do usuário logado |
 | POST | `/auth/recuperar-senha/solicitar-codigo` | Não | Envia o código de 6 dígitos por e-mail |
 | POST | `/auth/recuperar-senha/validar-codigo` | Não | Confere o código e devolve o `token_redefinicao` |
+| POST | `/auth/recuperar-senha/redefinir` | Sim (`token_redefinicao`) | Cadastra a nova senha |
 
 ## Recuperação de senha e e-mail
 
