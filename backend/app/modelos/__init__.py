@@ -10,3 +10,4 @@ from app.db.base import Base  # noqa: F401
 from app.modelos.usuario import Usuario  # noqa: F401
 from app.modelos.codigo_recuperacao import CodigoRecuperacao  # noqa: F401
 from app.modelos.imovel import Imovel  # noqa: F401
+from app.modelos.inquilino import Inquilino  # noqa: F401

@@ -11,7 +11,7 @@ backend/
 ├── migracoes/           # Migrações do banco (ver migracoes/README.md)
 └── app/
     ├── api/             # Dependências das rotas (sessão do banco, usuário logado)
-    ├── core/            # Configurações (config.py) e segurança (seguranca.py)
+    ├── core/            # Configurações, segurança (hash/JWT) e validadores (CPF/CNPJ)
     ├── db/              # Base dos modelos e sessão do banco
     ├── esquemas/        # Esquemas Pydantic de entrada e saída
     ├── modelos/         # Modelos (tabelas) do SQLAlchemy (usuario.py, ...)
@@ -60,6 +60,7 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 | POST | `/imoveis` | Sim | Salva um novo imóvel |
 | PUT | `/imoveis/{id}` | Sim | Salva as alterações de um imóvel |
 | GET | `/imoveis` | Sim | Lista os imóveis do usuário |
+| POST | `/inquilinos` | Sim | Cadastra um inquilino (PF ou PJ) |
 
 ## Recuperação de senha e e-mail
 
