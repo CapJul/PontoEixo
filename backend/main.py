@@ -24,7 +24,9 @@ app = FastAPI(
 if settings.PermissoesBackend:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.PermissoesBackend],
+        # O Pydantic normaliza a URL com uma barra no final ("http://localhost:3000/"),
+        # mas o navegador envia a origem sem ela; por isso a barra é removida.
+        allow_origins=[str(origin).rstrip("/") for origin in settings.PermissoesBackend],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

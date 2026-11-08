@@ -1,10 +1,130 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react';
+import Link from 'next/link';
+
+import AvisoErro from '@/componentes/AvisoErro';
+import { mensagemDeErro } from '@/lib/api';
+import { redefinirSenha, solicitarCodigo, validarCodigo } from '@/lib/autenticacao';
+
+// Igual ao intervalo mínimo entre envios configurado no backend (SegundosEntreEnviosCodigo)
+const SEGUNDOS_PARA_REENVIO = 60;
+const QUANTIDADE_DIGITOS = 6;
+
+const CLASSE_CAMPO =
+  'w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors';
+const CLASSE_BOTAO_ESCURO =
+  'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed';
+
+/** Pontua a senha de 0 a 4 para o indicador de força. */
+function calcularForcaSenha(senha: string): number {
+  let pontos = 0;
+  if (senha.length >= 8) pontos++;
+  if (/[a-zA-Z]/.test(senha) && /\d/.test(senha)) pontos++;
+  if (/[a-z]/.test(senha) && /[A-Z]/.test(senha)) pontos++;
+  if (/[^a-zA-Z0-9]/.test(senha) || senha.length >= 12) pontos++;
+  return pontos;
+}
+
+const ROTULOS_FORCA = ['Muito fraca', 'Fraca', 'Média', 'Boa', 'Forte'];
+const CORES_FORCA = ['bg-red-500', 'bg-red-500', 'bg-amber-500', 'bg-green-500', 'bg-green-500'];
 
 export default function PontoEixoEsqueceuSenha() {
   // Controle de etapas do fluxo de recuperação: 1 (E-mail) -> 2 (Código) -> 3 (Nova Senha)
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [email, setEmail] = useState('');
+  const [digitos, setDigitos] = useState<string[]>(Array(QUANTIDADE_DIGITOS).fill(''));
+  const [tokenRedefinicao, setTokenRedefinicao] = useState<string | null>(null);
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState('');
+  const [segundosReenvio, setSegundosReenvio] = useState(0);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [concluido, setConcluido] = useState(false);
+  const camposCodigo = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Contagem regressiva do botão "Reenviar código": o intervalo só existe enquanto há tempo a contar
+  const contandoReenvio = segundosReenvio > 0;
+  useEffect(() => {
+    if (!contandoReenvio) return;
+    const intervalo = setInterval(() => setSegundosReenvio((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(intervalo);
+  }, [contandoReenvio]);
+
+  const executar = async (acao: () => Promise<void>) => {
+    setErro(null);
+    setEnviando(true);
+    try {
+      await acao();
+    } catch (falha) {
+      setErro(mensagemDeErro(falha));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  // PASSO 1
+  const pedirCodigo = (e?: FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
+    return executar(async () => {
+      const mensagem = await solicitarCodigo(email);
+      setAviso(mensagem);
+      setDigitos(Array(QUANTIDADE_DIGITOS).fill(''));
+      setSegundosReenvio(SEGUNDOS_PARA_REENVIO);
+      setStep(2);
+    });
+  };
+
+  // PASSO 2
+  const alterarDigito = (indice: number, valor: string) => {
+    const digito = valor.replace(/\D/g, '').slice(-1);
+    setDigitos((atuais) => atuais.map((d, i) => (i === indice ? digito : d)));
+    if (digito && indice < QUANTIDADE_DIGITOS - 1) camposCodigo.current[indice + 1]?.focus();
+  };
+
+  const teclaNoDigito = (indice: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !digitos[indice] && indice > 0) {
+      camposCodigo.current[indice - 1]?.focus();
+    }
+  };
+
+  const colarCodigo = (e: ClipboardEvent<HTMLInputElement>) => {
+    const colado = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, QUANTIDADE_DIGITOS);
+    if (!colado) return;
+    e.preventDefault();
+    setDigitos(Array.from({ length: QUANTIDADE_DIGITOS }, (_, i) => colado[i] ?? ''));
+    camposCodigo.current[Math.min(colado.length, QUANTIDADE_DIGITOS - 1)]?.focus();
+  };
+
+  const conferirCodigo = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const codigo = digitos.join('');
+    if (codigo.length !== QUANTIDADE_DIGITOS) {
+      setErro('Digite os 6 dígitos do código.');
+      return;
+    }
+    return executar(async () => {
+      setTokenRedefinicao(await validarCodigo(email, codigo));
+      setAviso(null);
+      setStep(3);
+    });
+  };
+
+  // PASSO 3
+  const salvarNovaSenha = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (novaSenha !== confirmacaoSenha) {
+      setErro('A nova senha e a confirmação de senha não conferem.');
+      return;
+    }
+    return executar(async () => {
+      setAviso(await redefinirSenha(tokenRedefinicao ?? '', novaSenha, confirmacaoSenha));
+      setConcluido(true);
+    });
+  };
+
+  const forca = calcularForcaSenha(novaSenha);
 
   return (
     <main className="min-h-screen grid grid-cols-1 md:grid-cols-2 font-sans text-slate-800">
@@ -26,11 +146,13 @@ export default function PontoEixoEsqueceuSenha() {
           </div>
 
           {/* Renderização Condicional dos Passos */}
-          <div className="mt-8">
-            
+          <div className="mt-8 space-y-6">
+            <AvisoErro mensagem={erro} />
+            <AvisoErro mensagem={aviso} tipo="sucesso" />
+
             {/* PASSO 1: Solicitar Código */}
             {step === 1 && (
-              <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setStep(2); }}>
+              <form className="space-y-6" onSubmit={pedirCodigo}>
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
                     E-mail corporativo
@@ -39,33 +161,41 @@ export default function PontoEixoEsqueceuSenha() {
                     id="email"
                     type="email"
                     required
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={CLASSE_CAMPO}
                     placeholder="seu@email.com"
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all shadow-md"
-                >
-                  Enviar código de verificação
+                <button type="submit" disabled={enviando} className={CLASSE_BOTAO_ESCURO}>
+                  {enviando ? 'Enviando...' : 'Enviar código de verificação'}
                 </button>
               </form>
             )}
 
             {/* PASSO 2: Validar Código (OTP) */}
             {step === 2 && (
-              <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setStep(3); }}>
+              <form className="space-y-6" onSubmit={conferirCodigo}>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-3 text-center">
                     Código de verificação
                   </label>
                   {/* Grid para inputs de 6 dígitos (OTP) */}
                   <div className="flex gap-2 sm:gap-3 justify-center">
-                    {[1, 2, 3, 4, 5, 6].map((digit) => (
+                    {digitos.map((digito, indice) => (
                       <input
-                        key={digit}
+                        key={indice}
+                        ref={(campo) => { camposCodigo.current[indice] = campo; }}
                         type="text"
+                        inputMode="numeric"
+                        autoComplete={indice === 0 ? 'one-time-code' : 'off'}
+                        aria-label={`Dígito ${indice + 1}`}
                         maxLength={1}
+                        value={digito}
+                        onChange={(e) => alterarDigito(indice, e.target.value)}
+                        onKeyDown={(e) => teclaNoDigito(indice, e)}
+                        onPaste={colarCodigo}
                         className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-semibold rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors"
                         placeholder="•"
                       />
@@ -74,21 +204,29 @@ export default function PontoEixoEsqueceuSenha() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all shadow-md"
+                  disabled={enviando}
+                  className="w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Validar código
+                  {enviando ? 'Validando...' : 'Validar código'}
                 </button>
                 <div className="text-center">
-                  <button type="button" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
-                    Reenviar código (00:59)
+                  <button
+                    type="button"
+                    onClick={() => pedirCodigo()}
+                    disabled={segundosReenvio > 0 || enviando}
+                    className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors disabled:hover:text-slate-500 disabled:cursor-not-allowed"
+                  >
+                    {segundosReenvio > 0
+                      ? `Reenviar código (00:${String(segundosReenvio).padStart(2, '0')})`
+                      : 'Reenviar código'}
                   </button>
                 </div>
               </form>
             )}
 
             {/* PASSO 3: Redefinir Senha */}
-            {step === 3 && (
-              <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); alert('Senha alterada com sucesso!'); }}>
+            {step === 3 && !concluido && (
+              <form className="space-y-5" onSubmit={salvarNovaSenha}>
                 <div>
                   <label htmlFor="new-password" className="block text-sm font-medium text-slate-700 mb-1">
                     Nova senha
@@ -97,17 +235,27 @@ export default function PontoEixoEsqueceuSenha() {
                     id="new-password"
                     type="password"
                     required
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors"
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={novaSenha}
+                    onChange={(e) => setNovaSenha(e.target.value)}
+                    className={CLASSE_CAMPO}
                     placeholder="••••••••"
                   />
-                  {/* Indicador de força de senha simulado */}
+                  {/* Indicador de força da senha */}
                   <div className="flex gap-1 mt-2">
-                    <div className="h-1 w-full bg-green-500 rounded-full"></div>
-                    <div className="h-1 w-full bg-green-500 rounded-full"></div>
-                    <div className="h-1 w-full bg-green-500 rounded-full"></div>
-                    <div className="h-1 w-full bg-slate-200 rounded-full"></div>
+                    {[1, 2, 3, 4].map((nivel) => (
+                      <div
+                        key={nivel}
+                        className={`h-1 w-full rounded-full ${forca >= nivel ? CORES_FORCA[forca] : 'bg-slate-200'}`}
+                      ></div>
+                    ))}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Nível de segurança: Forte</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {novaSenha
+                      ? `Nível de segurança: ${ROTULOS_FORCA[forca]}`
+                      : 'Use pelo menos 8 caracteres, com letras e números.'}
+                  </p>
                 </div>
 
                 <div>
@@ -118,17 +266,23 @@ export default function PontoEixoEsqueceuSenha() {
                     id="confirm-password"
                     type="password"
                     required
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors"
+                    autoComplete="new-password"
+                    value={confirmacaoSenha}
+                    onChange={(e) => setConfirmacaoSenha(e.target.value)}
+                    className={CLASSE_CAMPO}
                     placeholder="••••••••"
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="w-full py-3 px-4 mt-2 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all shadow-md"
-                >
-                  Salvar nova senha
+                <button type="submit" disabled={enviando} className={`${CLASSE_BOTAO_ESCURO} mt-2`}>
+                  {enviando ? 'Salvando...' : 'Salvar nova senha'}
                 </button>
               </form>
+            )}
+
+            {concluido && (
+              <Link href="/login" className={`${CLASSE_BOTAO_ESCURO} block text-center`}>
+                Ir para o login
+              </Link>
             )}
 
           </div>
@@ -136,9 +290,9 @@ export default function PontoEixoEsqueceuSenha() {
           {/* Voltar para o Login */}
           <p className="text-center text-sm text-slate-500 mt-8">
             Lembrou sua senha?{' '}
-            <a href="/login" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
+            <Link href="/login" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
               Voltar para o login
-            </a>
+            </Link>
           </p>
         </div>
       </section>
