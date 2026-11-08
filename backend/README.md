@@ -60,12 +60,18 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 | POST | `/imoveis` | Sim | Salva um novo imóvel |
 | PUT | `/imoveis/{id}` | Sim | Salva as alterações de um imóvel |
 | GET | `/imoveis` | Sim | Lista os imóveis do usuário |
-| DELETE | `/imoveis/{id}` | Sim | Remove um imóvel |
+| DELETE | `/imoveis/{id}` | Sim | Remove um imóvel (409 se tiver contratos) |
 | POST | `/inquilinos` | Sim | Cadastra um inquilino (PF ou PJ) |
 | GET | `/inquilinos` | Sim | Lista os inquilinos do usuário (com o imóvel vinculado) |
 | GET | `/inquilinos/{id}` | Sim | Dados de um inquilino |
 | PUT | `/inquilinos/{id}` | Sim | Salva as alterações de um inquilino |
-| DELETE | `/inquilinos/{id}` | Sim | Remove um inquilino |
+| DELETE | `/inquilinos/{id}` | Sim | Remove um inquilino (409 se tiver contratos) |
+| POST | `/contratos` | Sim | Cria um contrato de locação |
+| GET | `/contratos` | Sim | Lista os contratos do usuário (com inquilino e imóvel) |
+| GET | `/contratos/{id}` | Sim | Dados de um contrato |
+| PUT | `/contratos/{id}` | Sim | Salva as alterações de um contrato |
+| DELETE | `/contratos/{id}` | Sim | Remove um contrato |
+| GET | `/contratos/{id}/pdf` | Sim | Baixa o contrato em PDF |
 
 ## Recuperação de senha e e-mail
 

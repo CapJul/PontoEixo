@@ -13,6 +13,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencias import SessaoBanco, UsuarioAtual
@@ -105,7 +106,10 @@ def listar_imoveis(usuario: UsuarioAtual, sessao: SessaoBanco) -> list[Imovel]:
     "/{imovel_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Remove um imóvel",
-    responses={404: {"description": "Imóvel não encontrado"}},
+    responses={
+        404: {"description": "Imóvel não encontrado"},
+        409: {"description": "Imóvel com contratos vinculados"},
+    },
 )
 def remover_imovel(imovel_id: int, usuario: UsuarioAtual, sessao: SessaoBanco) -> None:
     """
@@ -115,4 +119,12 @@ def remover_imovel(imovel_id: int, usuario: UsuarioAtual, sessao: SessaoBanco) -
     """
     imovel = buscar_imovel_do_usuario(sessao, imovel_id, usuario.id)
     sessao.delete(imovel)
-    sessao.commit()
+    try:
+        sessao.commit()
+    except IntegrityError as erro:
+        # A chave estrangeira (RESTRICT) impede excluir quem tem contratos
+        sessao.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este imóvel possui contratos. Exclua os contratos antes de excluí-lo.",
+        ) from erro

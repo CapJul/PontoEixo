@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.rotas import autenticacao, imoveis, inquilinos, recuperacao_senha
+from app.rotas import autenticacao, contratos, imoveis, inquilinos, recuperacao_senha
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +37,7 @@ app.include_router(autenticacao.router)
 app.include_router(recuperacao_senha.router)
 app.include_router(imoveis.router)
 app.include_router(inquilinos.router)
+app.include_router(contratos.router)
 
 @app.get("/", tags=["Saúde da API"])
 async def root():
