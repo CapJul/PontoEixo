@@ -58,7 +58,7 @@ export default function MenuLateral() {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex z-50 shadow-sm">
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex z-50 shadow-sm print:hidden">
       <div className="p-6 border-b border-slate-100">
         <h1 className="text-2xl font-light tracking-tight text-slate-900">
           Ponto<span className="font-semibold text-blue-600">Eixo</span>

@@ -75,6 +75,9 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 | POST | `/contratos/{id}/pagamentos` | Sim | Registra um aluguel recebido |
 | GET | `/contratos/{id}/pagamentos` | Sim | Lista os pagamentos do contrato |
 | DELETE | `/pagamentos/{id}` | Sim | Remove um pagamento |
+| GET | `/imposto-de-renda/{ano}` | Sim | Relatório anual de IRPF (fontes pagadoras e carnê-leão) |
+| GET | `/imposto-de-renda/{ano}/deducoes` | Sim | Despesas dedutíveis de cada imóvel no ano |
+| PUT | `/imposto-de-renda/{ano}/deducoes/{imovel_id}` | Sim | Salva IPTU, condomínio e taxa de administração do imóvel |
 
 ## Recuperação de senha e e-mail
 
