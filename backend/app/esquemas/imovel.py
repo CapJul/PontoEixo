@@ -53,3 +53,14 @@ class ImovelSaida(ImovelEntrada):
     id: int
     criado_em: datetime
     atualizado_em: datetime
+
+
+class ImovelResumo(BaseModel):
+    """Dados básicos do imóvel, exibidos junto de inquilinos e contratos."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nome: str
+    endereco: str | None
+    valor_aluguel: Annotated[Decimal, PlainSerializer(float, return_type=float)]
