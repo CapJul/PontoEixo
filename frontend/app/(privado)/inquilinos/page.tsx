@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AvisoErro from '@/componentes/AvisoErro';
 import MenuLateral from '@/componentes/MenuLateral';
 import { mensagemDeErro } from '@/lib/api';
+import { listarContratos, type Contrato } from '@/lib/contratos';
 import { formatarData, formatarDocumento, formatarReais, formatarTelefone } from '@/lib/formatacao';
 import {
   ROTULOS_ESTADO_CIVIL,
@@ -15,11 +16,21 @@ import {
   removerInquilino,
   type Inquilino,
 } from '@/lib/inquilinos';
+import { textoSituacao } from '@/lib/pagamentos';
 import { useDadosApi } from '@/lib/useDadosApi';
 
 const ICONE_WHATSAPP = (
   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347Z"/></svg>
 );
+
+type FiltroStatus = 'todos' | 'em_dia' | 'inadimplente' | 'sem_contrato';
+
+const FILTROS_STATUS: { id: FiltroStatus; label: string }[] = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'em_dia', label: 'Em dia' },
+  { id: 'inadimplente', label: 'Inadimplentes' },
+  { id: 'sem_contrato', label: 'Sem contrato ativo' },
+];
 
 /** Remove acentos e deixa em minúsculas, para a busca ignorar maiúsculas e acentos. */
 function normalizar(texto: string): string {
@@ -28,7 +39,26 @@ function normalizar(texto: string): string {
 
 export default function PontoEixoInquilinos() {
   const { dados: inquilinos, setDados: setInquilinos, carregando, erro } = useDadosApi(listarInquilinos, [] as Inquilino[]);
+  const { dados: contratos } = useDadosApi(listarContratos, [] as Contrato[]);
   const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos');
+
+  // Contrato ativo de cada inquilino (o mais recente, se houver mais de um)
+  const contratoAtivoPorInquilino = useMemo(() => {
+    const mapa = new Map<number, Contrato>();
+    for (const contrato of contratos) {
+      if (contrato.status !== 'ativo') continue;
+      const atual = mapa.get(contrato.inquilino_id);
+      if (!atual || contrato.data_inicio > atual.data_inicio) mapa.set(contrato.inquilino_id, contrato);
+    }
+    return mapa;
+  }, [contratos]);
+
+  const statusDe = (inquilino: Inquilino): Exclude<FiltroStatus, 'todos'> => {
+    const contrato = contratoAtivoPorInquilino.get(inquilino.id);
+    if (!contrato) return 'sem_contrato';
+    return contrato.situacao_financeira.situacao === 'inadimplente' ? 'inadimplente' : 'em_dia';
+  };
   const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   
@@ -37,20 +67,22 @@ export default function PontoEixoInquilinos() {
   const inquilinoSelecionado = inquilinos.find(i => i.id === idSelecionado) ?? null;
   const fecharPerfil = () => setIdSelecionado(null);
 
-  // Busca por nome, documento (com ou sem máscara) ou imóvel
-  const inquilinosFiltrados = useMemo(() => {
-    const termo = normalizar(busca.trim());
-    const termoDocumento = busca.replace(/[.\-/\s]/g, '').toUpperCase();
-    if (!termo) return inquilinos;
-    return inquilinos.filter(inq =>
+  // Busca por nome, documento (com ou sem máscara) ou imóvel, mais o filtro de situação
+  const termo = normalizar(busca.trim());
+  const termoDocumento = busca.replace(/[.\-/\s]/g, '').toUpperCase();
+  const inquilinosFiltrados = inquilinos.filter(inq => {
+    const combinaBusca = !termo ||
       normalizar(inq.nome).includes(termo) ||
       normalizar(inq.imovel?.nome ?? '').includes(termo) ||
-      (termoDocumento !== '' && inq.documento.includes(termoDocumento))
-    );
-  }, [inquilinos, busca]);
+      (termoDocumento !== '' && inq.documento.includes(termoDocumento));
+    const combinaStatus = filtroStatus === 'todos' || statusDe(inq) === filtroStatus;
+    return combinaBusca && combinaStatus;
+  });
 
-  const falarWhatsApp = (telefone: string, nome: string) => {
-    const msg = `Olá, ${nome}. Aqui é da administração do PontoEixo. Tudo bem?`;
+  const falarWhatsApp = (telefone: string, nome: string, diasAtraso?: number) => {
+    const msg = diasAtraso
+      ? `Olá, ${nome}. Aqui é da administração do PontoEixo. Constatamos um atraso de ${diasAtraso} dias no seu aluguel. Podemos ajudar a regularizar?`
+      : `Olá, ${nome}. Aqui é da administração do PontoEixo. Tudo bem?`;
     window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -92,8 +124,9 @@ export default function PontoEixoInquilinos() {
 
           <AvisoErro mensagem={erroAcao ?? erro} />
 
-          {/* Barra de busca */}
-          <div className="relative max-w-md">
+          {/* Barra de busca e filtro de situação */}
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
+          <div className="relative w-full max-w-md">
             <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" /></svg>
             <input
               type="search"
@@ -104,6 +137,20 @@ export default function PontoEixoInquilinos() {
               className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-400"
             />
           </div>
+          <div className="flex flex-wrap gap-2">
+            {FILTROS_STATUS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFiltroStatus(f.id)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  filtroStatus === f.id ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          </div>
           
           {/* Tabela de Dados */}
           <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
@@ -113,7 +160,7 @@ export default function PontoEixoInquilinos() {
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Inquilino / Contato</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Imóvel Vinculado</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Locação</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fiador/Garantia</th>
                     <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
                   </tr>
@@ -126,11 +173,16 @@ export default function PontoEixoInquilinos() {
                           ? 'Carregando inquilinos...'
                           : busca
                             ? 'Nenhum inquilino encontrado para esta busca.'
+                            : filtroStatus !== 'todos'
+                              ? 'Nenhum inquilino com esta situação.'
                             : 'Nenhum inquilino cadastrado ainda.'}
                       </td>
                     </tr>
                   )}
-                  {inquilinosFiltrados.map((inq) => (
+                  {inquilinosFiltrados.map((inq) => {
+                    const contratoAtivo = contratoAtivoPorInquilino.get(inq.id);
+                    const status = statusDe(inq);
+                    return (
                     <tr key={inq.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -144,11 +196,22 @@ export default function PontoEixoInquilinos() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-900 font-medium">{inq.imovel?.nome ?? 'Sem imóvel'}</div>
-                        <div className="text-sm text-slate-500">{inq.imovel?.endereco ?? ''}</div>
+                        <div className="text-sm text-slate-900 font-medium">{inq.imovel?.nome ?? contratoAtivo?.imovel.nome ?? 'Sem imóvel'}</div>
+                        <div className="text-sm text-slate-500">
+                          {contratoAtivo ? `Vence em: ${formatarData(contratoAtivo.data_fim)}` : (inq.imovel?.endereco ?? '')}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                        {ROTULOS_LOCACAO[inq.tipo_locacao]}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {status === 'sem_contrato' ? (
+                          <span className="text-sm text-slate-500">Sem contrato ativo</span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ring-1 ring-inset ${
+                            status === 'em_dia' ? 'bg-green-50 text-green-700 ring-green-600/20' : 'bg-red-50 text-red-700 ring-red-600/20'
+                          }`}>
+                            <svg className={`h-1.5 w-1.5 ${status === 'em_dia' ? 'fill-green-500' : 'fill-red-500'}`} viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" /></svg>
+                            {status === 'em_dia' ? 'Em dia' : `Atraso: ${contratoAtivo!.situacao_financeira.dias_atraso} dias`}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-slate-900">{inq.garantia ? ROTULOS_GARANTIA[inq.garantia] : '—'}</div>
@@ -157,9 +220,9 @@ export default function PontoEixoInquilinos() {
                         <div className="flex items-center justify-end gap-3">
                           {inq.telefone && (
                             <button 
-                              onClick={() => falarWhatsApp(inq.telefone!, inq.nome)}
-                              className="p-1.5 rounded-md transition-colors text-slate-400 hover:text-green-600 hover:bg-green-50"
-                              title="Falar no WhatsApp"
+                              onClick={() => falarWhatsApp(inq.telefone!, inq.nome, status === 'inadimplente' ? contratoAtivo!.situacao_financeira.dias_atraso : undefined)}
+                              className={`p-1.5 rounded-md transition-colors ${status === 'inadimplente' ? 'text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`}
+                              title={status === 'inadimplente' ? 'Cobrar no WhatsApp' : 'Falar no WhatsApp'}
                               aria-label={`Falar com ${inq.nome} no WhatsApp`}
                             >
                               {ICONE_WHATSAPP}
@@ -177,7 +240,8 @@ export default function PontoEixoInquilinos() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -265,6 +329,37 @@ export default function PontoEixoInquilinos() {
               </div>
 
               <hr className="border-slate-100" />
+
+              {/* Contrato Ativo */}
+              {(() => {
+                const contrato = contratoAtivoPorInquilino.get(inquilinoSelecionado.id);
+                if (!contrato) return null;
+                return (
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Contrato Ativo</h4>
+                    <div className="bg-slate-50 rounded-md border border-slate-200 p-4 space-y-3 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Imóvel</span>
+                        <span className="font-medium text-slate-900 text-right">{contrato.imovel.nome}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Aluguel</span>
+                        <span className="font-semibold text-slate-900">{formatarReais(contrato.valor_aluguel)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Vigência</span>
+                        <span className="font-medium text-slate-800">{formatarData(contrato.data_inicio)} a {formatarData(contrato.data_fim)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Situação</span>
+                        <span className={`font-medium ${contrato.situacao_financeira.situacao === 'inadimplente' ? 'text-red-600' : 'text-green-700'}`}>
+                          {textoSituacao(contrato.situacao_financeira)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Dados da Locação */}
               <div>

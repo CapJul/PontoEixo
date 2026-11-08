@@ -100,7 +100,7 @@ export default function FormularioContrato({ contrato, inquilinos, imoveis, aoSa
 
   const excluir = () => {
     if (!aoExcluir) return;
-    if (!window.confirm('Excluir este contrato? Esta ação não pode ser desfeita.')) return;
+    if (!window.confirm('Excluir este contrato? Os pagamentos registrados nele também serão apagados.')) return;
     return executar(aoExcluir);
   };
 
