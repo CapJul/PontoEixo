@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.esquemas.imovel import ImovelResumo, ValorReais
+from app.esquemas.pagamento import SituacaoFinanceiraSaida
 from app.modelos.contrato import IndiceReajuste, StatusContrato
 from app.modelos.inquilino import TipoPessoa
 
@@ -71,5 +72,6 @@ class ContratoSaida(BaseModel):
     observacoes: str | None
     inquilino: InquilinoResumo
     imovel: ImovelResumo
+    situacao_financeira: SituacaoFinanceiraSaida
     criado_em: datetime
     atualizado_em: datetime

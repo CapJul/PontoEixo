@@ -16,6 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, ColunasDeData
 from app.modelos.imovel import Imovel
 from app.modelos.inquilino import Inquilino
+from app.modelos.pagamento import Pagamento
+from app.servicos.situacao_financeira import SituacaoFinanceira, calcular_situacao
 
 
 class IndiceReajuste(str, enum.Enum):
@@ -103,6 +105,24 @@ class Contrato(ColunasDeData, Base):
     # Sempre exibidos junto do contrato (lista, PDF), então vêm no mesmo SELECT
     inquilino: Mapped[Inquilino] = relationship(lazy="joined")
     imovel: Mapped[Imovel] = relationship(lazy="joined")
+    # Pagamentos do contrato (apagados junto com ele), carregados em uma consulta extra
+    pagamentos: Mapped[list[Pagamento]] = relationship(
+        lazy="selectin",
+        order_by=Pagamento.competencia,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    @property
+    def situacao_financeira(self) -> SituacaoFinanceira:
+        """Em dia ou inadimplente, calculado a partir dos pagamentos registrados."""
+        return calcular_situacao(
+            ativo=self.status == StatusContrato.ATIVO,
+            dia_vencimento=self.dia_vencimento,
+            data_inicio=self.data_inicio,
+            data_fim=self.data_fim,
+            competencias_pagas=(p.competencia for p in self.pagamentos),
+        )
 
     def __repr__(self) -> str:
         return f"<Contrato id={self.id} inquilino_id={self.inquilino_id}>"

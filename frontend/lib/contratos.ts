@@ -4,6 +4,7 @@
 
 import { baixarArquivo, requisitar } from './api';
 import type { ImovelResumo, TipoPessoa } from './inquilinos';
+import type { SituacaoFinanceira } from './pagamentos';
 
 export type IndiceReajuste = 'ipca' | 'igpm' | 'nenhum';
 export type StatusContrato = 'ativo' | 'pendente_assinatura' | 'encerrado';
@@ -33,6 +34,7 @@ export interface Contrato extends ContratoEntrada {
   id: number;
   inquilino: InquilinoResumo;
   imovel: ImovelResumo;
+  situacao_financeira: SituacaoFinanceira;
   criado_em: string;
   atualizado_em: string;
 }
@@ -108,6 +110,10 @@ export function calcularReajuste(contrato: Contrato, hoje = new Date()): InfoRea
 
 export function listarContratos(): Promise<Contrato[]> {
   return requisitar<Contrato[]>('/contratos');
+}
+
+export function obterContrato(id: number): Promise<Contrato> {
+  return requisitar<Contrato>(`/contratos/${id}`);
 }
 
 export function criarContrato(dados: ContratoEntrada): Promise<Contrato> {
