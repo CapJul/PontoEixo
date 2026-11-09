@@ -8,14 +8,32 @@ Endpoints:
     POST /imoveis        -> salva um novo imóvel
     PUT  /imoveis/{id}   -> salva as alterações de um imóvel existente
     GET  /imoveis        -> lista os imóveis do usuário (para carregar o 3D/mapa)
+    DELETE /imoveis/{id} -> remove um imóvel
 """
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.api.dependencias import SessaoBanco, UsuarioAtual
 from app.esquemas.imovel import ImovelEntrada, ImovelSaida
 from app.modelos.imovel import Imovel
+
+
+def buscar_imovel_do_usuario(sessao: Session, imovel_id: int, usuario_id: int) -> Imovel:
+    """
+    Busca um imóvel do usuário logado.
+
+    Raises:
+        HTTPException 404: imóvel inexistente ou de outro usuário.
+    """
+    imovel = sessao.scalar(
+        select(Imovel).where(Imovel.id == imovel_id, Imovel.usuario_id == usuario_id)
+    )
+    if imovel is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Imóvel não encontrado.")
+    return imovel
+
 
 router = APIRouter(
     prefix="/imoveis",
@@ -64,11 +82,7 @@ def atualizar_imovel(
     Envie o imóvel completo (mesmo formato do cadastro). Imóveis de outros
     usuários são tratados como inexistentes (404).
     """
-    imovel = sessao.scalar(
-        select(Imovel).where(Imovel.id == imovel_id, Imovel.usuario_id == usuario.id)
-    )
-    if imovel is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Imóvel não encontrado.")
+    imovel = buscar_imovel_do_usuario(sessao, imovel_id, usuario.id)
 
     for campo, valor in _dados_para_banco(dados).items():
         setattr(imovel, campo, valor)
@@ -85,3 +99,20 @@ def listar_imoveis(usuario: UsuarioAtual, sessao: SessaoBanco) -> list[Imovel]:
             select(Imovel).where(Imovel.usuario_id == usuario.id).order_by(Imovel.nome)
         )
     )
+
+
+@router.delete(
+    "/{imovel_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove um imóvel",
+    responses={404: {"description": "Imóvel não encontrado"}},
+)
+def remover_imovel(imovel_id: int, usuario: UsuarioAtual, sessao: SessaoBanco) -> None:
+    """
+    Exclui um imóvel do usuário logado.
+
+    Os inquilinos vinculados a ele continuam cadastrados, apenas sem imóvel.
+    """
+    imovel = buscar_imovel_do_usuario(sessao, imovel_id, usuario.id)
+    sessao.delete(imovel)
+    sessao.commit()

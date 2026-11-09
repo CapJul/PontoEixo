@@ -60,6 +60,7 @@ No Swagger (`/docs`), clique em **Authorize** e cole o `token_acesso`.
 | POST | `/imoveis` | Sim | Salva um novo imóvel |
 | PUT | `/imoveis/{id}` | Sim | Salva as alterações de um imóvel |
 | GET | `/imoveis` | Sim | Lista os imóveis do usuário |
+| DELETE | `/imoveis/{id}` | Sim | Remove um imóvel |
 | POST | `/inquilinos` | Sim | Cadastra um inquilino (PF ou PJ) |
 
 ## Recuperação de senha e e-mail
