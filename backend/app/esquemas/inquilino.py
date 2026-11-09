@@ -16,6 +16,7 @@ from pydantic import (
 
 from app.core.validadores import somente_caracteres_documento, validar_cnpj, validar_cpf
 from app.esquemas.comum import EmailNormalizado
+from app.esquemas.imovel import ImovelResumo
 from app.modelos.inquilino import (
     EstadoCivil,
     GarantiaLocaticia,
@@ -129,6 +130,7 @@ class InquilinoSaida(BaseModel):
     email: str | None
     telefone: str | None
     imovel_id: int | None
+    imovel: ImovelResumo | None = Field(description="Imóvel destinado ao inquilino, se houver")
     tipo_locacao: TipoLocacao
     garantia: GarantiaLocaticia | None
     criado_em: datetime

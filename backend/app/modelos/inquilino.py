@@ -138,7 +138,8 @@ class Inquilino(ColunasDeData, Base):
         comment="fiador, caucao, seguro ou nenhuma",
     )
 
-    imovel: Mapped[Imovel | None] = relationship()
+    # Carregado junto do inquilino (JOIN), pois as telas sempre mostram o imóvel
+    imovel: Mapped[Imovel | None] = relationship(lazy="joined")
 
     def __repr__(self) -> str:
         return f"<Inquilino id={self.id} nome={self.nome!r}>"
