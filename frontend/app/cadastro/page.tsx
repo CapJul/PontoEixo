@@ -1,5 +1,49 @@
 "use client";
+
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import Link from "next/link";
+
+import AvisoErro from "@/componentes/AvisoErro";
+import { mensagemDeErro } from "@/lib/api";
+import { cadastrar } from "@/lib/autenticacao";
+import { useRedirecionarSeLogado } from "@/lib/useRedirecionarSeLogado";
+
 export default function PontoEixoCadastro() {
+  // A API devolve o token no cadastro; com a sessão salva, este hook leva para a home
+  useRedirecionarSeLogado();
+
+  const [dados, setDados] = useState({
+    nome: "",
+    email: "",
+    senha: "",
+    confirmacao_senha: "",
+    aceite_termos: false,
+  });
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const alterarCampo = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setDados((atual) => ({ ...atual, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const enviar = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErro(null);
+
+    if (dados.senha !== dados.confirmacao_senha) {
+      setErro("A senha e a confirmação de senha não conferem.");
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      await cadastrar(dados);
+    } catch (falha) {
+      setErro(mensagemDeErro(falha));
+      setEnviando(false);
+    }
+  };
   return (
     <main className="min-h-screen grid grid-cols-1 md:grid-cols-2 font-sans text-slate-800">
       
@@ -18,7 +62,8 @@ export default function PontoEixoCadastro() {
           </div>
 
           {/* Formulário */}
-          <form className="space-y-5 mt-8" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-5 mt-8" onSubmit={enviar}>
+            <AvisoErro mensagem={erro} />
             
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">
@@ -26,10 +71,13 @@ export default function PontoEixoCadastro() {
               </label>
               <input
                 id="name"
-                name="name"
+                name="nome"
                 type="text"
                 autoComplete="name"
                 required
+                minLength={3}
+                value={dados.nome}
+                onChange={alterarCampo}
                 className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors duration-200"
                 placeholder="João da Silva"
               />
@@ -45,6 +93,8 @@ export default function PontoEixoCadastro() {
                 type="email"
                 autoComplete="email"
                 required
+                value={dados.email}
+                onChange={alterarCampo}
                 className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors duration-200"
                 placeholder="seu@email.com"
               />
@@ -57,9 +107,13 @@ export default function PontoEixoCadastro() {
                 </label>
                 <input
                   id="password"
-                  name="password"
+                  name="senha"
                   type="password"
+                  autoComplete="new-password"
                   required
+                  minLength={8}
+                  value={dados.senha}
+                  onChange={alterarCampo}
                   className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors duration-200"
                   placeholder="••••••••"
                 />
@@ -71,9 +125,12 @@ export default function PontoEixoCadastro() {
                 </label>
                 <input
                   id="confirm-password"
-                  name="confirm-password"
+                  name="confirmacao_senha"
                   type="password"
+                  autoComplete="new-password"
                   required
+                  value={dados.confirmacao_senha}
+                  onChange={alterarCampo}
                   className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-colors duration-200"
                   placeholder="••••••••"
                 />
@@ -84,9 +141,11 @@ export default function PontoEixoCadastro() {
               <div className="flex items-center h-5">
                 <input
                   id="terms"
-                  name="terms"
+                  name="aceite_termos"
                   type="checkbox"
                   required
+                  checked={dados.aceite_termos}
+                  onChange={alterarCampo}
                   className="w-4 h-4 border border-slate-300 rounded bg-slate-50 focus:ring-3 focus:ring-blue-200"
                 />
               </div>
@@ -104,19 +163,24 @@ export default function PontoEixoCadastro() {
               </div>
             </div>
 
+            <p className="text-xs text-slate-500">
+              A senha precisa ter pelo menos 8 caracteres, com letras e números.
+            </p>
+
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 mt-4 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all shadow-md"
+              disabled={enviando}
+              className="w-full flex justify-center py-3 px-4 mt-4 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Começar a usar o PontoEixo
+              {enviando ? "Criando conta..." : "Começar a usar o PontoEixo"}
             </button>
           </form>
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Já possui uma conta?{' '}
-            <a href="/login" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
+            <Link href="/login" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
               Faça login
-            </a>
+            </Link>
           </p>
         </div>
       </section>

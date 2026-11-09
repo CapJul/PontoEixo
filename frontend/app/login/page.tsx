@@ -1,20 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from 'next/navigation';
+import { useState, type FormEvent } from "react";
+import Link from "next/link";
+
+import AvisoErro from "@/componentes/AvisoErro";
+import { mensagemDeErro } from "@/lib/api";
+import { entrar } from "@/lib/autenticacao";
+import { useRedirecionarSeLogado } from "@/lib/useRedirecionarSeLogado";
 
 export default function PontoEixoLogin() {
-  const router = useRouter();
+  // Ao salvar a sessão, este hook leva o usuário para a home
+  useRedirecionarSeLogado();
 
-  const email = "teste@gmail.com";
-  const senha = "123456";
-  
   const [dadosFormulario, setDadosFormulario] = useState({
     email: "",
     senha: "",
   });
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  const [loginSucesso, setLoginSucesso] = useState(false);
+  const enviar = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErro(null);
+    setEnviando(true);
+    try {
+      await entrar(dadosFormulario.email, dadosFormulario.senha);
+    } catch (falha) {
+      setErro(mensagemDeErro(falha));
+      setEnviando(false);
+    }
+  };
 
   return (
     <main className="min-h-screen grid grid-cols-1 md:grid-cols-2 font-sans text-slate-800">
@@ -31,7 +46,8 @@ export default function PontoEixoLogin() {
             </p>
           </div>
 
-          <form className="space-y-6 mt-8" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-6 mt-8" onSubmit={enviar}>
+            <AvisoErro mensagem={erro} />
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
@@ -55,9 +71,9 @@ export default function PontoEixoLogin() {
                   <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                     Senha
                   </label>
-                  <a href="/recuperar-senha" className="text-xs font-medium text-blue-600 hover:text-blue-500 transition-colors">
+                  <Link href="/recuperar-senha" className="text-xs font-medium text-blue-600 hover:text-blue-500 transition-colors">
                     Esqueceu a senha?
-                  </a>
+                  </Link>
                 </div>
                 <input
                   id="password"
@@ -75,25 +91,18 @@ export default function PontoEixoLogin() {
 
             <button
               type="submit"
-              onClick={() => {
-                if (dadosFormulario.email === email && dadosFormulario.senha === senha) {
-                  setLoginSucesso(true);
-                  router.push('/home');
-                } else {
-                  setLoginSucesso(false);
-                }
-              }}
-              className="w-full flex justify-center py-3 px-4 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all shadow-md"
+              disabled={enviando}
+              className="w-full flex justify-center py-3 px-4 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Entrar no PontoEixo
+              {enviando ? "Entrando..." : "Entrar no PontoEixo"}
             </button>
           </form>
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Ainda não é parceiro?{' '}
-            <a href="/cadastro" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+            <Link href="/cadastro" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
               Crie sua conta
-            </a>
+            </Link>
           </p>
         </div>
       </section>
