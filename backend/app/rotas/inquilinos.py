@@ -162,10 +162,21 @@ def atualizar_inquilino(
     "/{inquilino_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Remove um inquilino",
-    responses={404: {"description": "Inquilino não encontrado"}},
+    responses={
+        404: {"description": "Inquilino não encontrado"},
+        409: {"description": "Inquilino com contratos vinculados"},
+    },
 )
 def remover_inquilino(inquilino_id: int, usuario: UsuarioAtual, sessao: SessaoBanco) -> None:
     """Exclui um inquilino do usuário logado."""
     inquilino = buscar_inquilino_do_usuario(sessao, inquilino_id, usuario.id)
     sessao.delete(inquilino)
-    sessao.commit()
+    try:
+        sessao.commit()
+    except IntegrityError as erro:
+        # A chave estrangeira (RESTRICT) impede excluir quem tem contratos
+        sessao.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este inquilino possui contratos. Exclua os contratos antes de excluí-lo.",
+        ) from erro

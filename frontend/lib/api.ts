@@ -100,6 +100,12 @@ export async function requisitar<T>(caminho: string, opcoes: OpcoesRequisicao = 
   return (await resposta.json()) as T;
 }
 
+/** Faz uma requisição e devolve o corpo como arquivo (ex.: PDF). */
+export async function baixarArquivo(caminho: string): Promise<Blob> {
+  const resposta = await enviar(caminho);
+  return resposta.blob();
+}
+
 /** Mensagem amigável para qualquer erro capturado em um try/catch. */
 export function mensagemDeErro(erro: unknown): string {
   if (erro instanceof ErroApi) return erro.message;

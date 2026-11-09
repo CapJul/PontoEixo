@@ -16,6 +16,9 @@ pydantic==2.14.2
 pydantic-settings==2.16.2
 email-validator==2.3.0
 
+# Geração do PDF dos contratos
+fpdf2==2.9.0
+
 # Segurança (JWT e hash de senhas)
 PyJWT==2.15.1
 pwdlib[argon2]==0.3.1
